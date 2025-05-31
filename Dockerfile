@@ -7,6 +7,9 @@ WORKDIR /app
 COPY environment2.yml ./
 COPY . /app
 
+ENV SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=true
+
+
 # Create environment
 RUN conda env create -f environment2.yml
 
