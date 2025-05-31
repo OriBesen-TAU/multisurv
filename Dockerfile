@@ -28,5 +28,9 @@ RUN conda install -n multisurv jupyter -y
 # Expose port for Jupyter Notebook
 EXPOSE 8888
 
+# Generate Jupyter config and set fixed port to prevent auto-port switching
+RUN jupyter notebook --generate-config && \
+    echo "c.ServerApp.port = 8888" >> /root/.jupyter/jupyter_server_config.py
+    
 # Launch Jupyter Notebook by default
 CMD ["bash", "-c", "source activate multisurv && jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --allow-root"]
