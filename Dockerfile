@@ -8,7 +8,7 @@ COPY environment2.yml ./
 COPY . /app
 
 # Create environment
-RUN conda env create -f environment.yml
+RUN conda env create -f environment2.yml
 
 # Activate environment by default
 SHELL ["conda", "run", "-n", "multisurv", "/bin/bash", "-c"]
