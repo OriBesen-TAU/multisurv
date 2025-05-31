@@ -29,4 +29,4 @@ RUN conda install -n multisurv jupyter -y
 EXPOSE 8888
 
 # Launch Jupyter Notebook by default
-CMD ["conda", "run", "-n", "multisurv", "jupyter", "notebook", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root"]
+CMD ["bash", "-c", "source activate multisurv && jupyter notebook --ip=0.0.0.0 --port=8888 --no-browser --allow-root"]
