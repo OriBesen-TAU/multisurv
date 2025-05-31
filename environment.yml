@@ -106,7 +106,7 @@ dependencies:
   - pysocks=1.7.1=py36_0
   - python=3.6.7=h357f687_1006
   - python-dateutil=2.8.1=py_0
-  - pytorch=1.4.0=py3.6_cuda10.1.243_cudnn7.6.3_0
+  - pytorch
   - pytz=2019.3=py_0
   - pywavelets=1.1.1=py36hc1659b7_0
   - qt=5.12.5=hd8c4c69_1
@@ -119,7 +119,7 @@ dependencies:
   - sqlite=3.30.1=hcee41ef_0
   - tk=8.6.10=hed695b0_0
   - toolz=0.10.0=py_0
-  - torchvision=0.5.0=py36_cu101
+  - torchvision
   - tornado=6.0.3=py36h516909a_0
   - urllib3=1.25.7=py36_0
   - wheel=0.33.6=py36_0
@@ -227,5 +227,5 @@ dependencies:
     - wrapt==1.11.2
     - wsipre==0.1.2
     - zipp==2.0.1
-prefix: /home/luis/anaconda3/envs/multisurv
+
 
