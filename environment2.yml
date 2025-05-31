@@ -20,9 +20,7 @@ dependencies:
   - torchvision
   - h5py
   - pip
-  - scikit-image
-  - scikit-learn
-  - scikit-optimize
+  - scikit
   - pip:
       - pycox
       - torchtuples
