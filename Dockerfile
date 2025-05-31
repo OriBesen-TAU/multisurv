@@ -7,8 +7,14 @@ WORKDIR /app
 COPY environment2.yml ./
 COPY . /app
 
-ENV SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=true
+#  Install build tools for compiling pip packages
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
 
+# Allow deprecated sklearn shim
+ENV SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=true
 
 # Create environment
 RUN conda env create -f environment2.yml
