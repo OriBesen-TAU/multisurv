@@ -29,7 +29,5 @@ dependencies:
       - tables
       - xlrd
       - openpyxl
-      - scikit-image
-      - scikit-learn
-      - scikit-optimize
+
 
