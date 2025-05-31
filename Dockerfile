@@ -4,7 +4,7 @@ FROM continuumio/miniconda3
 WORKDIR /app
 
 # Copy environment file and project code
-COPY environment.yml ./
+COPY environment2.yml ./
 COPY . /app
 
 # Create environment

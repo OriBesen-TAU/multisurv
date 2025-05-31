@@ -1,0 +1,35 @@
+name: multisurv
+channels:
+  - defaults
+  - conda-forge
+  - bioconda
+  - pytorch
+
+dependencies:
+  - python=3.8
+  - numpy
+  - pandas
+  - matplotlib
+  - scikit-learn
+  - scipy
+  - seaborn
+  - lifelines
+  - imageio
+  - opencv
+  - pytorch
+  - torchvision
+  - h5py
+  - pip
+  - scikit-image
+  - scikit-learn
+  - scikit-optimize
+  - pip:
+      - pycox
+      - torchtuples
+      - pysurvival
+      - tqdm
+      - jupyter
+      - tables
+      - xlrd
+      - openpyxl
+
