@@ -25,6 +25,9 @@ SHELL ["conda", "run", "-n", "multisurv", "/bin/bash", "-c"]
 # Install Jupyter in the environment
 RUN conda install -n multisurv jupyter -y
 
+# Install additional Python packages
+RUN conda install -n multisurv -y -c conda-forge openslide openslide-python watermark
+
 # Expose port for Jupyter Notebook
 EXPOSE 8888
 
