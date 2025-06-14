@@ -46,9 +46,9 @@ def main(input_file_dir, chunk_size, labels_file, probe_file, output_file,
 
     DNAm_files = request_file_info()
     DNAm_files = DNAm_files[
-        DNAm_files['cases.0.project.project_id'].str.startswith('TCGA')]
+        DNAm_files['cases.0.project.project_id'].str.startswith('TCGA-BRCA')]
     DNAm_files = DNAm_files[
-        DNAm_files['file_name'].str.endswith('gdc_hg38.txt')]
+        DNAm_files['file_name'].str.endswith('.txt')]
     DNAm_files = DNAm_files[
         DNAm_files['cases.0.samples.0.sample_type'] == 'Primary Tumor']
 
@@ -155,6 +155,13 @@ def request_file_info():
                 "field": "files.experimental_strategy",
                 "value": ['Methylation Array']
                 }
+            },
+                        {
+            "op": "in",
+            "content":{
+                "field": "files.access",
+                "value": ['open']
+                }
             }
         ]
     }
@@ -185,7 +192,7 @@ def load_all_data(patient_file_map, probe_set):
     for i, patient in enumerate(patient_file_map):
         print('\r' + f'   Load tables: {str(i + 1)}/{n}', end='')
         df = pd.read_csv(patient_file_map[patient], sep='\t', index_col=0,
-                         usecols=['Composite Element REF', 'Beta_value'])
+                         header=None, names=['probe_id', 'Beta_value'])
         # Keep only selected probes
         df = df[df.index.isin(probe_set)]
         df.columns = [patient]

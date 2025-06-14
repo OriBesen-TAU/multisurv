@@ -37,11 +37,7 @@ def main(input_file_dir, chunk_size, output_file, n_samples):
 
     mRNA_files = request_file_info()
     mRNA_files = mRNA_files[
-        mRNA_files['cases.0.project.project_id'].str.startswith('TCGA')]
-    mRNA_files = mRNA_files[
-        mRNA_files['file_name'].str.endswith('FPKM-UQ.txt.gz')]
-    mRNA_files = mRNA_files[
-        mRNA_files['cases.0.samples.0.sample_type'] == 'Primary Tumor']
+        mRNA_files['cases.0.project.project_id'].str.startswith('TCGA-BRCA')]
 
     # When there is more than one file for a single patient just keep the first 
     # (this is assuming they are just replicates and all similar)
@@ -50,6 +46,7 @@ def main(input_file_dir, chunk_size, output_file, n_samples):
 
     file_map = make_patient_file_map(
         mRNA_files, base_dir=input_file_dir)
+    print(len(file_map))
 
     # Subset
     if n_samples is not None:
@@ -57,9 +54,18 @@ def main(input_file_dir, chunk_size, output_file, n_samples):
         file_map = {key: file_map[key] for i, key in enumerate(file_map)
                     if i < n_samples}
 
-    eg_file = file_map[list(file_map.keys())[0]]
-    total_n_lines = len(list(pd.read_csv(
-        eg_file, sep='\t', header=None, index_col=0, names=['count']).index))
+    did_open_file = False
+    while (did_open_file == False):
+        try:
+            eg_file = file_map[list(file_map.keys())[0]]
+            df = pd.read_csv(eg_file, sep='\t', header=0, comment='#')
+            df.set_index('gene_id', inplace=True)
+            df = df[~df.index.str.startswith('N_')]
+            df = df[~df.index.str.startswith('__')]
+            total_n_lines = len(df)
+            did_open_file = True
+        except Exception as e:
+            print(f"didn't manage to open file {e}")
 
     print('Process gene chunks:')
     variance_table = pd.DataFrame()
@@ -144,6 +150,13 @@ def request_file_info():
                 "field": "files.experimental_strategy",
                 "value": ['RNA-Seq']
                 }
+            },
+                        {
+            "op": "in",
+            "content":{
+                "field": "files.access",
+                "value": ['open']
+                }
             }
         ]
     }
@@ -169,21 +182,26 @@ def make_patient_file_map(df, base_dir):
 
 def load_data_chunk(patient_file_map, total_lines, chunk_lines):
     n = len(patient_file_map)
-
-    rows_to_skip = [x for x in list(range(0, total_lines))
-                    if not x in chunk_lines]
-
     dfs = []
+
     for i, patient in enumerate(patient_file_map):
         print('\r' + f'   Load tables: {str(i + 1)}/{n}', end='')
-        df = pd.read_csv(patient_file_map[patient], sep='\t', header=None,
-                         index_col=0, names=['FPKM-UQ'], skiprows=rows_to_skip)
-        df.columns = [patient]
-        dfs.append(df)
+        try:
+            df = pd.read_csv(
+                patient_file_map[patient],
+                sep='\t',
+                comment='#',
+                usecols=['gene_id', 'fpkm_uq_unstranded']
+            ).set_index('gene_id')
+            df.columns = [patient]
+            df = df.iloc[chunk_lines]
+            dfs.append(df)
+        except Exception as e:
+            print(f"\nError with patient {patient}: {e}")
 
     print()
-
     return dfs
+
 
 def merge_dfs(table_list):
     n = len(table_list)

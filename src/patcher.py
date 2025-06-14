@@ -64,12 +64,16 @@ class PatchGenerator(object):
             wsi_file, _ = selected_slide
         else:
             wsi_file = selected_slide
-
+    
         wsi = slide.Slide(wsi_file)
         patch = wsi.read_random_tissue_patch(
             level=self.slide_level, size=self.patch_size)
-
+    
+        if patch is None:
+            raise IndexError("No valid tissue patch found.")
+    
         return patch, os.path.basename(wsi_file)
+
 
     def reset(self):
         """Reset generator."""
@@ -77,18 +81,32 @@ class PatchGenerator(object):
 
     def __next__(self):
         with self.lock:
-            if self.i >= self.n:
-                self.reset()
+            while self.i < self.n:
+                try:
+                    if self.random_tissue_patch:
+                        result = self._get_random_tissue_patch(self.slide_files[self.i])
+                    else:
+                        result = self._get_random_patch(self.slide_files[self.i])
+    
+                    self.i += 1
+    
+                    # Check if patch was invalid (e.g. tissue not found)
+                    if isinstance(result, tuple) and result[0] == 'No valid tissue pixels found.':
+                        continue  # Skip and move to next slide
+    
+                    return result
+    
+                except IndexError:
+                    print(f"\n[!] Skipped slide {self.i + 1}/{self.n}: no valid tissue area.")
+                    self.i += 1  # Move to next slide
+                except Exception as e:
+                    print(f"\n[!] Skipped slide {self.i + 1}/{self.n} due to error: {e}")
+                    self.i += 1  # Skip on any other error
+    
+            # All slides processed
+            self.reset()
+            raise StopIteration
 
-            if self.random_tissue_patch:
-                result = self._get_random_tissue_patch(
-                    self.slide_files[self.i])
-            else:
-                result = self._get_random_patch(self.slide_files[self.i])
-
-            self.i += 1
-
-            return result
 
 
 class OfflinePatcher(object):
@@ -144,29 +162,33 @@ class OfflinePatcher(object):
         self._save(file_path)
 
     def run(self, n):
-        """Generate and save indicated number of image patches per slide.
-
-        Parameters
-        ----------
-        n: int
-            Number of patches to generate (slides are selected in sequence).
-        """
-        # Upon keyboard interrupt save last patch to make sure it is not
-        # corrupted
+        """Generate and save `n` image patches per slide."""
         print('Generating WSI patches')
         print('----------------------')
         try:
-            for patch in range(n):
-                print('\r' + f'{str(patch + 1)}/{str(n)}', end='')
-                # Skip slides with no detected tumor regions
-                result = next(self.patch_gen)
-                if result == 'No tumor annotations found.':
-                    continue
-                self.patch, self.filename = result
-                file_path = self._compose_path()
-                self._save(file_path)
+            for slide_file in self.slide_files:
+                print(f"\nProcessing: {os.path.basename(slide_file)}")
+                for i in range(n):
+                    print(f'\r{i+1}/{n}', end='')
+    
+                    try:
+                        if self.patch_gen.random_tissue_patch:
+                            patch, self.filename = self.patch_gen._get_random_tissue_patch(slide_file)
+                        else:
+                            patch, self.filename = self.patch_gen._get_random_patch(slide_file)
+    
+                        self.patch = patch
+                        file_path = self._compose_path()
+                        self._save(file_path)
+    
+                    except Exception as e:
+                        print(f"\n[!] Failed on patch {i+1} for {slide_file}: {e}")
+                        break  # optional: break this slide's loop if it repeatedly fails
+    
         except KeyboardInterrupt:
             file_path = self._compose_path()
             self._save(file_path)
+            print("\n[!] Interrupted — last patch saved.")
+
 
         print()

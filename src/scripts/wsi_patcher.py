@@ -41,6 +41,8 @@ def main(input_dir, labels_file, output_dir, n_patches):
 
     print('Collect paths to all slide files...')
     slide_paths = get_slide_paths(input_dir)
+    print("Total slides:")
+    print(len(slide_paths))
 
     labels = pd.read_csv(labels_file, sep='\t')
 
@@ -48,11 +50,15 @@ def main(input_dir, labels_file, output_dir, n_patches):
     patients = list(labels.submitter_id)
     slide_paths = [path for path in slide_paths
                    if get_patient_id(path) in patients]
+    print("Total slides in patients list:")
+    print(len(slide_paths))
     n_slides = len(slide_paths)
 
     # Check existing patch files and drop respective WSIs from list
     slide_paths, n_dropped = drop_completed_slides(
-        output_dir, slide_paths, patients)
+        output_dir, slide_paths, patients, n_patches)
+    print("Total slides after dropping completed patients:")
+    print(len(slide_paths))
 
     if n_dropped > 0:
         print(f'Dropped {n_dropped} already completed slides' + \
@@ -62,13 +68,11 @@ def main(input_dir, labels_file, output_dir, n_patches):
 
     patcher.OfflinePatcher(
         slide_files=slide_paths,
-        n_patches=n_patches,
-        labels_table=labels,
         target_dir=output_dir,
         patch_size=(512, 512),
         slide_level=0,
-        get_random_tissue_patch=True).run()
-
+        get_random_tissue_patch=True).run(n_patches)
+    
     print_footer(start)
 
 
@@ -118,10 +122,9 @@ def get_slide_paths(input_dir):
 def get_patient_id(filepath):
     return '-'.join(os.path.basename(filepath).split('-')[:3])
 
-def drop_completed_slides(directory, slide_paths, patients, minimum_n=99):
+def drop_completed_slides(directory, slide_paths, patients, minimum_n=50):
     existing_patches = []
-    for x in ['train', 'val', 'test']:
-        existing_patches += os.listdir(os.path.join(directory, x))
+    existing_patches += os.listdir(directory)
 
     patient_patch_count = Counter([get_patient_id(x)
                                    for x in existing_patches])
