@@ -19,8 +19,8 @@ import plotting as plot
 
 
 # Storage location of data and trained model weights
-INPUT_DATA_DIR = '/mnt/dataA/TCGA/processed/'
-TRAINED_MODEL_DIR = '/mnt/dataA/multisurv_models/'
+INPUT_DATA_DIR = '/mnt/data/Processed_Data/'
+TRAINED_MODEL_DIR = '/mnt/data/multisurv_models/'
 
 
 def elapsed_time(start):
@@ -83,7 +83,7 @@ def get_dataloaders(data_location, labels_file, modalities,
         'wsi': os.path.join(data_location, 'WSI'),
         'mRNA': os.path.join(data_location, 'RNA-seq'),
         'miRNA': os.path.join(data_location, 'miRNA-seq'),
-        'DNAm': os.path.join(data_location, 'DNAm/5k'),
+        'DNAm': os.path.join(data_location, 'DNAm'),
         'CNV': os.path.join(data_location, 'CNV'),
     }
 
