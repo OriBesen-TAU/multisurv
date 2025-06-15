@@ -177,26 +177,44 @@ class MultimodalDataset(_BaseDataset):
 
     def _get_patches(self, data_dir, patient_id):
         """Read WSI patches for selected patient.
-
+    
         Patient files list absolute paths to available WSI patches for the
-        repective patient.
+        respective patient.
         """
-        patient_file = os.path.join(data_dir, patient_id + '.txt')
-
+        import numpy as np  # Ensure it's imported if not already
+    
+        patient_file = os.path.join(data_dir, patient_id + '.tsv')
+    
         try:
             patch_files = self._read_patient_file(patient_file)
-        except:  # If data is missing create all-zero tensor
+        except Exception as e:
+            print(f"[{patient_id}] Failed to read patch file: {e}")
             return torch.zeros([self.np, 3, self.psize[0], self.psize[0]])
+    
+        selected_patches = random.sample(patch_files, min(self.np, len(patch_files)))
+        loaded_patches = []
+    
+        for patch_path in selected_patches:
+            try:
+                img = io.imread(patch_path)
+    
+                if self.transform:
+                    img = self.transform(img)
+                else:
+                    # Convert from HWC [0–255] to CHW float tensor [0–1]
+                    img = torch.tensor(img).permute(2, 0, 1).float() / 255.0
+    
+                loaded_patches.append(img)
+    
+            except Exception as e:
+                print(f"⚠️ Skipping corrupted patch: {patch_path} | Reason: {e}")
+    
+        # Pad with black (zero) tensors if some failed
+        while len(loaded_patches) < self.np:
+            loaded_patches.append(torch.zeros(3, self.psize[0], self.psize[1]))
+    
+        return torch.stack(loaded_patches)
 
-        # Select n patches at random
-        patch_files = random.sample(patch_files, self.np)
-        patches = [io.imread(p) for p in patch_files]
-
-        if self.transform is not None:
-            patches = torch.stack([self.transform(patch)
-                                   for patch in patches])
-
-        return patches
 
     def _get_data(self, data_dir, patient_id):
         patient_files = {os.path.splitext(f)[0]: f
