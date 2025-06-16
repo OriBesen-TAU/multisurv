@@ -111,26 +111,27 @@ class ClinicalNet(nn.Module):
     Handle continuous features and categorical feature embeddings.
     """
     def __init__(self, output_vector_size, embedding_dims=[
-        (33, 17), (2, 1), (8, 4), (3, 2), (3, 2), (3, 2), (3, 2), (3, 2),
-        (20, 10)]):
-        super(ClinicalNet, self).__init__()
-        # Embedding layer
-        self.embedding_layers = nn.ModuleList([nn.Embedding(x, y)
-                                               for x, y in embedding_dims])
+        (5, 3),   # race
+        (3, 2),   # gender
+        (4, 2),   # ethnicity
+        (3, 2),   # vital_status
+        (2, 1),   # prior_malignancy
+        (2, 1),   # prior_treatment
+        (3, 2),   # laterality
+    ]):
+        super().__init__()  # <-- fixed here
 
-        n_embeddings = sum([y for x, y in embedding_dims])
-        n_continuous = 1
+        self.embedding_layers = nn.ModuleList([
+            nn.Embedding(num_categories, embedding_dim)
+            for num_categories, embedding_dim in embedding_dims
+        ])
 
-        # Linear Layers
+        n_embeddings = sum([embedding_dim for _, embedding_dim in embedding_dims])
+        n_continuous = 1  # e.g., age_at_diagnosis
+
         self.linear = nn.Linear(n_embeddings + n_continuous, 256)
-
-        # Embedding dropout Layer
         self.embedding_dropout = nn.Dropout()
-
-        # Continuous feature batch norm layer
         self.bn_layer = nn.BatchNorm1d(n_continuous)
-
-        # Output Layer
         self.output_layer = FC(256, output_vector_size, 1)
 
     def forward(self, x):
