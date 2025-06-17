@@ -28,7 +28,7 @@ def freeze_layers(model, up_to_layer=None):
 
 class ResNet(nn.Module):
     def __init__(self):
-        super(ResNet, self).__init__()
+        super().__init__()
         self.model = models.resnext50_32x4d(pretrained=True)
         freeze_layers(self.model, up_to_layer='layer3')
         self.n_features = self.model.fc.in_features
@@ -46,7 +46,7 @@ class FC(nn.Module):
     "Fully-connected model to generate final output."
     def __init__(self, in_features, out_features, n_layers, dropout=True,
                  batchnorm=False, scaling_factor=4):
-        super(FC, self).__init__()
+        super().__init__()
         if n_layers == 1:
             layers = self._make_layer(in_features, out_features, dropout,
                                       batchnorm)
@@ -104,57 +104,45 @@ class FC(nn.Module):
     def forward(self, x):
         return self.fc(x)
 
-
 class ClinicalNet(nn.Module):
-    """Clinical data extractor.
-
-    Handle continuous features and categorical feature embeddings.
-    """
     def __init__(self, output_vector_size, embedding_dims=[
-        (5, 3),   # race
-        (3, 2),   # gender
-        (4, 2),   # ethnicity
-        (3, 2),   # vital_status
-        (2, 1),   # prior_malignancy
-        (2, 1),   # prior_treatment
-        (3, 2),   # laterality
+        (2, 1), (7, 4), (3, 2), (3, 2), (3, 2), (4, 2), (4, 2)
     ]):
-        super().__init__()  # <-- fixed here
+        super().__init__()
 
         self.embedding_layers = nn.ModuleList([
-            nn.Embedding(num_categories, embedding_dim)
-            for num_categories, embedding_dim in embedding_dims
+            nn.Embedding(num_categories, emb_dim)
+            for num_categories, emb_dim in embedding_dims
         ])
 
-        n_embeddings = sum([embedding_dim for _, embedding_dim in embedding_dims])
-        n_continuous = 1  # e.g., age_at_diagnosis
+        self.n_continuous = 1  # age_at_diagnosis or whatever you have
+        self.total_embedding_dim = sum([emb_dim for _, emb_dim in embedding_dims])
+        self.linear_input_dim = self.total_embedding_dim + self.n_continuous
 
-        self.linear = nn.Linear(n_embeddings + n_continuous, 256)
         self.embedding_dropout = nn.Dropout()
-        self.bn_layer = nn.BatchNorm1d(n_continuous)
+        self.bn_layer = nn.BatchNorm1d(self.n_continuous)
+        self.linear = nn.Linear(self.linear_input_dim, 256)
         self.output_layer = FC(256, output_vector_size, 1)
 
     def forward(self, x):
         categorical_x, continuous_x = x
         categorical_x = categorical_x.to(torch.int64)
 
-        x = [emb_layer(categorical_x[:, i])
-             for i, emb_layer in enumerate(self.embedding_layers)]
-        x = torch.cat(x, 1)
-        x = self.embedding_dropout(x)
+        x_cat = [emb(categorical_x[:, i]) for i, emb in enumerate(self.embedding_layers)]
+        x_cat = torch.cat(x_cat, dim=1)
+        x_cat = self.embedding_dropout(x_cat)
 
-        continuous_x = self.bn_layer(continuous_x)
+        x_cont = self.bn_layer(continuous_x)
+        x = torch.cat([x_cat, x_cont], dim=1)
 
-        x = torch.cat([x, continuous_x], 1)
         out = self.output_layer(self.linear(x))
-
         return out
 
 
 class CnvNet(nn.Module):
     """Gene copy number variation data extractor."""
     def __init__(self, output_vector_size, embedding_dims=[(3, 2)] * 2000):
-        super(CnvNet, self).__init__()
+        super().__init__()
         self.embedding_layers = nn.ModuleList([nn.Embedding(x, y)
                                                for x, y in embedding_dims])
         n_embeddings = 2 * 2000
@@ -174,7 +162,7 @@ class CnvNet(nn.Module):
 class WsiNet(nn.Module):
     "WSI patch feature extractor and aggregator."
     def __init__(self, output_vector_size):
-        super(WsiNet, self).__init__()
+        super().__init__()
         self.feature_extractor = ResNet()
         self.num_image_features = self.feature_extractor.n_features
         # Multiview WSI patch aggregation
@@ -201,7 +189,7 @@ class WsiNet(nn.Module):
 class Fusion(nn.Module):
     "Multimodal data aggregator."
     def __init__(self, method, feature_size, device):
-        super(Fusion, self).__init__()
+        super().__init__()
         self.method = method
         methods = ['cat', 'max', 'sum', 'prod', 'embrace', 'attention']
 
