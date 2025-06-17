@@ -80,8 +80,12 @@ class Model(_BaseModelWithData):
         self.aux_loss = auxiliary_criterion
 
     def test_lr_range(self):
-        self._instantiate_model()
-
+        # self._instantiate_model()  # <-- Comment this out!
+        
+        # Clear gradients instead
+        for param in self.model.parameters():
+            param.grad = None
+        
         self.lr_test = LRRangeTest(
             dataloader=self.dataloaders['train'],
             optimizer=self.optimizer(self.model.parameters(), lr=1e-4),

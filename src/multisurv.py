@@ -11,7 +11,7 @@ class MultiSurv(torch.nn.Module):
     """Deep Learning model for MULTImodal pan-cancer SURVival prediction."""
     def __init__(self, data_modalities, fusion_method='max',
                  n_output_intervals=None, device=None):
-        super(MultiSurv, self).__init__()
+        super().__init__()
         self.data_modalities = data_modalities
         self.mfs = modality_feature_size = 512
         valid_mods = ['clinical', 'wsi', 'mRNA', 'miRNA', 'DNAm', 'CNV']
@@ -34,7 +34,7 @@ class MultiSurv(torch.nn.Module):
             self.submodels['clinical'] = self.clinical_submodel
 
             if fusion_method == 'cat':
-                self.num_features += self.mfs
+                self.num_features = self.num_features + self.mfs
 
         # WSI patches --------------------------------------------------------#
         if 'wsi' in self.data_modalities:
@@ -42,7 +42,7 @@ class MultiSurv(torch.nn.Module):
             self.submodels['wsi'] = self.wsi_submodel
 
             if fusion_method == 'cat':
-                self.num_features += self.mfs
+                self.num_features = self.num_features + self.mfs
 
         # mRNA ---------------------------------------------------------------#
         if 'mRNA' in self.data_modalities:
@@ -50,7 +50,7 @@ class MultiSurv(torch.nn.Module):
             self.submodels['mRNA'] = self.mRNA_submodel
 
             if fusion_method == 'cat':
-                self.num_features += self.mfs
+                self.num_features = self.num_features + self.mfs
 
         # miRNA --------------------------------------------------------------#
         if 'miRNA' in self.data_modalities:
@@ -58,7 +58,7 @@ class MultiSurv(torch.nn.Module):
             self.submodels['miRNA'] = self.miRNA_submodel
 
             if fusion_method == 'cat':
-                self.num_features += self.mfs
+                self.num_features = self.num_features + self.mfs
 
         # DNAm ---------------------------------------------------------------#
         if 'DNAm' in self.data_modalities:
@@ -66,7 +66,7 @@ class MultiSurv(torch.nn.Module):
             self.submodels['DNAm'] = self.DNAm_submodel
 
             if fusion_method == 'cat':
-                self.num_features += self.mfs
+                self.num_features = self.num_features + self.mfs
 
         # DNAm ---------------------------------------------------------------#
         if 'CNV' in self.data_modalities:
@@ -74,7 +74,7 @@ class MultiSurv(torch.nn.Module):
             self.submodels['CNV'] = self.CNV_submodel
 
             if fusion_method == 'cat':
-                self.num_features += self.mfs
+                self.num_features = self.num_features + self.mfs
 
         # Instantiate multimodal aggregator ----------------------------------#
         if len(data_modalities) > 1:
@@ -99,32 +99,23 @@ class MultiSurv(torch.nn.Module):
 
     def forward(self, x):
         multimodal_features = tuple()
-
         # Run data through modality sub-models (generate feature vectors) ----#
         for modality in x:
-            multimodal_features += (self.submodels[modality](x[modality]),)
-
+            multimodal_features = multimodal_features + (self.submodels[modality](x[modality]),)
+        
         # Feature fusion/aggregation -----------------------------------------#
         if len(multimodal_features) > 1:
-            x = self.aggregator(torch.stack(multimodal_features))
+            stacked_features = torch.stack(multimodal_features)
+            x = self.aggregator(stacked_features)
             feature_repr = {'modalities': multimodal_features, 'fused': x}
         else:  # skip if running unimodal data
             x = multimodal_features[0]
             feature_repr = {'modalities': multimodal_features[0]}
-
+        
         # Outputs ------------------------------------------------------------#
         x = self.fc_block(x)
         risk = self.risk_layer(x)
-
-        # Return non-zero features (not missing input data)
-        output_features = tuple()
-
-        for modality in multimodal_features:
-            modality_features = torch.stack(
-                [batch_element for batch_element in modality
-                 if batch_element.sum() != 0])
-            output_features += modality_features,
-
-        feature_repr['modalities'] = output_features
-
+        
+        # SIMPLIFIED: Just return original modalities without filtering
+        feature_repr['modalities'] = multimodal_features
         return feature_repr, risk

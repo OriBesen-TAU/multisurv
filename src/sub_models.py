@@ -11,98 +11,96 @@ from attention import Attention
 
 
 def freeze_layers(model, up_to_layer=None):
-    if up_to_layer is not None:
-        # Freeze all layers
-        for i, param in model.named_parameters():
-            param.requires_grad = False
+    if up_to_layer is None:
+        return
 
-        # Release all layers after chosen layer
-        frozen_layers = []
-        for name, child in model.named_children():
-            if up_to_layer in frozen_layers:
-                for params in child.parameters():
-                    params.requires_grad = True
-            else:
-                frozen_layers.append(name)
+    # Freeze all parameters
+    for param in model.parameters():
+        param.requires_grad = False
+
+    # Unfreeze layers starting from `up_to_layer`
+    unfreeze = False
+    for name, child in model.named_children():
+        if name == up_to_layer:
+            unfreeze = True
+        if unfreeze:
+            for param in child.parameters():
+                param.requires_grad = True
+
 
 
 class ResNet(nn.Module):
     def __init__(self):
         super().__init__()
-        self.model = models.resnext50_32x4d(pretrained=True)
-        freeze_layers(self.model, up_to_layer='layer3')
-        self.n_features = self.model.fc.in_features
+        base_model = models.resnext50_32x4d(pretrained=True)
+        self.n_features = base_model.fc.in_features
 
-        # Remove classifier (last layer)
-        self.model = nn.Sequential(*(list(self.model.children())[:-1]))
+        # Freeze layers
+        freeze_layers(base_model, up_to_layer='layer3')
+
+        # Remove the classifier (last layer)
+        self.feature_extractor = nn.Sequential(*list(base_model.children())[:-1])
 
     def forward(self, x):
-        out = self.model(x)
+        x = self.feature_extractor(x)     # shape: (B, 2048, 1, 1)
+        x = x.view(x.size(0), -1)         # shape: (B, 2048)
+        return x
 
-        return out
 
 
 class FC(nn.Module):
-    "Fully-connected model to generate final output."
+    """Fully-connected model to generate final output."""
     def __init__(self, in_features, out_features, n_layers, dropout=True,
                  batchnorm=False, scaling_factor=4):
         super().__init__()
+        layers = []
+
         if n_layers == 1:
-            layers = self._make_layer(in_features, out_features, dropout,
-                                      batchnorm)
-        elif n_layers > 1:
-            n_neurons = self._pick_n_neurons(in_features)
-            if n_neurons < out_features:
-                n_neurons = out_features
+            layers = layers + self._make_layer(in_features, out_features, dropout, batchnorm)
 
-            if n_layers == 2:
-                layers = self._make_layer(
-                    in_features, n_neurons, dropout, batchnorm=True)
-                layers += self._make_layer(
-                    n_neurons, out_features, dropout, batchnorm)
-            else:
-                for layer in range(n_layers):
-                    last_layer_i = range(n_layers)[-1]
+        elif n_layers == 2:
+            hidden = self._pick_n_neurons(in_features)
+            hidden = max(hidden, out_features)
+            layers = layers + self._make_layer(in_features, hidden, dropout, batchnorm=True)
+            layers = layers + self._make_layer(hidden, out_features, dropout, batchnorm)
 
-                    if layer == 0:
-                        n_neurons *= scaling_factor
-                        layers = self._make_layer(
-                            in_features, n_neurons, dropout, batchnorm=True)
-                    elif layer < last_layer_i:
-                        n_in = n_neurons
-                        n_neurons = self._pick_n_neurons(n_in)
-                        if n_neurons < out_features:
-                            n_neurons = out_features
-                        layers += self._make_layer(
-                            n_in, n_neurons, dropout, batchnorm=True)
-                    else:
-                        layers += self._make_layer(
-                            n_neurons, out_features, dropout, batchnorm)
+        elif n_layers > 2:
+            hidden = self._pick_n_neurons(in_features) * scaling_factor
+            layers = layers + self._make_layer(in_features, hidden, dropout, batchnorm=True)
+
+            for _ in range(n_layers - 2):
+                next_hidden = self._pick_n_neurons(hidden)
+                next_hidden = max(next_hidden, out_features)
+                layers = layers + self._make_layer(hidden, next_hidden, dropout, batchnorm=True)
+                hidden = next_hidden
+
+            layers = layers + self._make_layer(hidden, out_features, dropout, batchnorm)
+
         else:
             raise ValueError('"n_layers" must be positive.')
 
         self.fc = nn.Sequential(*layers)
 
     def _make_layer(self, in_features, out_features, dropout, batchnorm):
-        layer = nn.ModuleList()
+        layers = []
         if dropout:
-            layer.append(nn.Dropout())
-        layer.append(nn.Linear(in_features, out_features))
-        layer.append(nn.ReLU(inplace=True))
+            layers.append(nn.Dropout(p=0.5, inplace=False))
+        layers.append(nn.Linear(in_features, out_features))
+        layers.append(nn.ReLU(inplace=False))
         if batchnorm:
-            layer.append(nn.BatchNorm1d(out_features))
-
-        return layer
+            layers.append(nn.BatchNorm1d(out_features))
+        return layers
 
     def _pick_n_neurons(self, n_features):
-        # Pick number of features from list immediately below n input
-        n_neurons = [128, 256, 512, 1024, 2048, 4096, 8192, 16384]
-        idx = bisect_left(n_neurons, n_features)
-
-        return n_neurons[0 if idx == 0 else idx - 1]
+        candidates = [128, 256, 512, 1024, 2048, 4096, 8192]
+        for size in candidates:
+            if size >= n_features:
+                return size
+        return candidates[-1]
 
     def forward(self, x):
         return self.fc(x)
+
 
 class ClinicalNet(nn.Module):
     def __init__(self, output_vector_size, embedding_dims=[
@@ -115,28 +113,38 @@ class ClinicalNet(nn.Module):
             for num_categories, emb_dim in embedding_dims
         ])
 
-        self.n_continuous = 1  # age_at_diagnosis or whatever you have
+        self.n_continuous = 1  # e.g., age_at_diagnosis
         self.total_embedding_dim = sum([emb_dim for _, emb_dim in embedding_dims])
         self.linear_input_dim = self.total_embedding_dim + self.n_continuous
 
-        self.embedding_dropout = nn.Dropout()
+        self.embedding_dropout = nn.Dropout(p=0.5, inplace=False)
         self.bn_layer = nn.BatchNorm1d(self.n_continuous)
         self.linear = nn.Linear(self.linear_input_dim, 256)
         self.output_layer = FC(256, output_vector_size, 1)
 
     def forward(self, x):
         categorical_x, continuous_x = x
-        categorical_x = categorical_x.to(torch.int64)
 
+        # Ensure correct types
+        categorical_x = categorical_x.to(torch.int64)
+        if continuous_x.shape[1] != self.n_continuous:
+            raise ValueError(f"Expected {self.n_continuous} continuous feature(s), got {continuous_x.shape[1]}")
+
+        # Embedding for each categorical column
         x_cat = [emb(categorical_x[:, i]) for i, emb in enumerate(self.embedding_layers)]
         x_cat = torch.cat(x_cat, dim=1)
         x_cat = self.embedding_dropout(x_cat)
 
+        # Normalize continuous input
         x_cont = self.bn_layer(continuous_x)
+
+        # Concatenate categorical + continuous
         x = torch.cat([x_cat, x_cont], dim=1)
 
+        # Forward through FC layers
         out = self.output_layer(self.linear(x))
         return out
+
 
 
 class CnvNet(nn.Module):
@@ -210,17 +218,22 @@ class Fusion(nn.Module):
             self.attention = Attention(size=feature_size)
 
     def forward(self, x):
+        
         if self.method == 'attention':
             out = self.attention(x)
-        if self.method == 'cat':
-            out = torch.cat([m for m in x], dim=1)
-        if self.method == 'max':
-            out = x.max(dim=0)[0]
-        if self.method == 'sum':
-            out = x.sum(dim=0)
-        if self.method == 'prod':
-            out = x.prod(dim=0)
-        if self.method == 'embrace':
+        elif self.method == 'cat':
+            # Concatenate along feature dimension (dim=2)
+            out = torch.cat([x[i] for i in range(x.shape[0])], dim=1)
+        elif self.method == 'max':
+            # Take max across modalities (dim=0), keep batch and feature dims
+            out = torch.max(x, dim=0)[0]  # Result: [32, 512]
+        elif self.method == 'sum':
+            out = torch.sum(x, dim=0)     # Result: [32, 512]
+        elif self.method == 'prod':
+            out = torch.prod(x, dim=0)    # Result: [32, 512]
+        elif self.method == 'embrace':
             out = self.embrace(x)
-
+        else:
+            raise ValueError(f"Unknown fusion method: {self.method}")
+    
         return out
