@@ -1,6 +1,7 @@
 name: multisurv
 channels:
   - pytorch
+  - nvidia  # Added for CUDA support
   - conda-forge
   - bioconda
   - defaults
@@ -17,9 +18,12 @@ dependencies:
   - lifelines
   - imageio
   - opencv
+  - pytorch-cuda=11.8  # GPU-enabled PyTorch
   - pytorch
   - torchvision
   - h5py
+  - pymongo
+  - tensorboard
   - pip
   - pip:
       - pycox
