@@ -67,16 +67,30 @@ class _BaseEvaluation:
     def _predictions_to_pycox(self, data, time_points=None):
         predictions = {k: v['probabilities'] for k, v in data.items()}
         df = pd.DataFrame.from_dict(predictions)
-
+    
         # Use predictions at same "time_points" for all models
         # Use MultiSurv's default output interval midpoints as default
         if time_points is None:
-            time_points = torch.arange(0.5, 30, 1)
-
+            # Instead of fixed range, use the actual number of prediction intervals
+            # Get the number of intervals from the first prediction
+            first_prediction = next(iter(predictions.values()))
+            if hasattr(first_prediction, 'shape'):
+                n_intervals = first_prediction.shape[0]
+            else:
+                n_intervals = len(first_prediction)
+            
+            # Create time points that match the number of intervals
+            time_points = torch.arange(0.5, 0.5 + n_intervals, 1.0)
+    
+        # Ensure time_points length matches the dataframe
+        if len(time_points) != len(df):
+            # Adjust time_points to match dataframe length
+            time_points = torch.arange(0.5, 0.5 + len(df), 1.0)
+    
         # Replace automatic index by time points
         df.insert(0, 'time', time_points)
         df = df.set_index('time')
-
+    
         return df
 
 
@@ -184,7 +198,7 @@ class Evaluation(_BaseEvaluation):
             self.ev = _BaselineModelEvaluation(model, dataset)
 
     def _collect_patient_predictions(self):
-        if (self.device is not None and self.type is not 'MultiSurv'):
+        if (self.device is not None and self.type != 'MultiSurv'):
             warnings.warn('"device" is only used with MultiSurv model.' +
                         ' Ignored here.')
 

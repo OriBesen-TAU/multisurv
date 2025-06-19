@@ -1,0 +1,21 @@
+version: '3.8'
+services:
+  multisurv:
+    image: multisurv-gpu
+    ports:
+      - "8888:8888"
+    shm_size: 8g
+    volumes:
+      - .:/app  # Current directory (multisurv folder) → /app
+      - smb_data:/mnt/data
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+
+volumes:
+  smb_data:
+    driver: local
+    driver_opts:
+      type: cifs
+      o: "username=user,password=mimplab,vers=3.0"
+      device: "//132.66.206.144/MultiOmics_data"

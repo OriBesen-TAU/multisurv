@@ -156,7 +156,9 @@ class Model(_BaseModelWithData):
         predictor = Predictor(self.model, self.device)
         # Use midpoints of MultiSurv output intervals
         midpoints = self.output_intervals
-        midpoints[1:] = midpoints[1:] - np.diff(midpoints)[0] / 2
+        # Use PyTorch operations to avoid CPU conversion
+        diff_val = torch.diff(midpoints)[0] / 2
+        midpoints[1:] = midpoints[1:] - diff_val
         prediction = predictor.predict(input_data, prediction_year, midpoints)
         feature_representations, risk = prediction
 
