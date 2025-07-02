@@ -104,7 +104,7 @@ class FC(nn.Module):
 
 class ClinicalNet(nn.Module):
     def __init__(self, output_vector_size, embedding_dims=[
-        (2, 1), (7, 4), (3, 2), (3, 2), (3, 2), (4, 2), (4, 2)
+        (2, 1), (6, 3), (2, 1), (2, 1), (2, 1), (3, 2), (3, 2), (12, 6)
     ]):
         super().__init__()
 

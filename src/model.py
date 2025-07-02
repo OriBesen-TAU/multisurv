@@ -88,7 +88,7 @@ class Model(_BaseModelWithData):
         
         self.lr_test = LRRangeTest(
             dataloader=self.dataloaders['train'],
-            optimizer=self.optimizer(self.model.parameters(), lr=1e-4),
+            optimizer=self.optimizer(self.model.parameters(), lr=1e-3),
             criterion=self.loss, auxiliary_criterion=self.aux_loss,
             output_intervals=self.output_intervals, model=self.model,
             device=self.device)
@@ -102,9 +102,9 @@ class Model(_BaseModelWithData):
             print(f'       Please run {".test_lr_range"} first.')
 
     def fit(self, lr, num_epochs, info_freq, log_dir, lr_factor=0.1,
-            scheduler_patience=5):
+            scheduler_patience=5, weight_decay=1e-4):
         self._instantiate_model()
-        optimizer = self.optimizer(self.model.parameters(), lr=lr)
+        optimizer = self.optimizer(self.model.parameters(), lr=lr, weight_decay=weight_decay)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer=optimizer, mode='max', factor=lr_factor,
             patience=scheduler_patience, verbose=True, threshold=1e-3,

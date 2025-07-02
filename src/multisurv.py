@@ -62,7 +62,7 @@ class MultiSurv(torch.nn.Module):
 
         # DNAm ---------------------------------------------------------------#
         if 'DNAm' in self.data_modalities:
-            self.DNAm_submodel = FC(5000, self.mfs, 5, scaling_factor=2)
+            self.DNAm_submodel = FC(3764, self.mfs, 5, scaling_factor=2)
             self.submodels['DNAm'] = self.DNAm_submodel
 
             if fusion_method == 'cat':
