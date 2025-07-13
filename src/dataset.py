@@ -169,9 +169,9 @@ class MultimodalDataset(_BaseDataset):
         data_file = os.path.join(data_dir, patient_files[patient_id])
         data = self._read_patient_file(data_file)
         categorical = torch.tensor(
-            [int(float(value)) for value in data[:8]], dtype=torch.int)
+            [int(float(value)) for value in data[:9]], dtype=torch.int)
         continuous = torch.tensor(
-            [float(value) for value in data[8:]], dtype=torch.float)
+            [float(value) for value in data[9:]], dtype=torch.float)
 
         return categorical, continuous
 

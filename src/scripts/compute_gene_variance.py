@@ -36,8 +36,9 @@ def main(input_file_dir, chunk_size, output_file, n_samples):
     print('Downloading metadata from GDC database...')
 
     mRNA_files = request_file_info()
-    mRNA_files = mRNA_files[
-        mRNA_files['cases.0.project.project_id'].str.startswith('TCGA-BRCA')]
+    mRNA_files = mRNA_files[mRNA_files['cases.0.project.project_id'].str.startswith('TCGA')]
+    mRNA_files = mRNA_files[mRNA_files['file_name'].str.endswith('.tsv')]
+    mRNA_files = mRNA_files[mRNA_files['cases.0.samples.0.sample_type'] == 'Primary Tumor']
 
     # When there is more than one file for a single patient just keep the first 
     # (this is assuming they are just replicates and all similar)
