@@ -102,8 +102,8 @@ class Model(_BaseModelWithData):
             print(f'       Please run {".test_lr_range"} first.')
 
     def fit(self, lr, num_epochs, info_freq, log_dir, lr_factor=0.1,
-            scheduler_patience=5, weight_decay=1e-4):
-        self._instantiate_model()
+            scheduler_patience=5, weight_decay=0):
+       # self._instantiate_model()
         optimizer = self.optimizer(self.model.parameters(), lr=lr, weight_decay=weight_decay)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer=optimizer, mode='max', factor=lr_factor,

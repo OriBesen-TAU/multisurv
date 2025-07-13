@@ -182,6 +182,7 @@ class ModelCoach:
 
                 if print_info:
                     if phase == 'train':
+                        print(scheduler.get_last_lr())
                         message = f' {epoch}/{num_epochs}'
                     space = 10 if phase == 'train' else 27
                     message += ' ' * (space - len(message))
